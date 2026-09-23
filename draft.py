@@ -1,26 +1,7 @@
-import os
+from llm import call_tool
+from classify import classify_review
 
-from dotenv import load_dotenv
-from anthropic import Anthropic
-
-load_dotenv()
-
-client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-DRAFT_TOOL = {
-    "name": "yanit_taslagi",
-    "description": "Bir müşteri yorumuna, mağaza adına gönderilecek herkese açık bir yanıt taslağı üretir.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "reply": {
-                "type": "string",
-                "description": "Müşteriye gönderilecek, herkese açık yanıt metni.",
-            }
-        },
-        "required": ["reply"],
-    },
-}
+DEFAULT_MODEL = "openai/gpt-oss-120b:free"
 
 SYSTEM_PROMPT = """Sen bir e-ticaret mağazasının müşteri yorumlarına yanıt yazan asistanısın.
 Bu fonksiyon SADECE otomatik-yanıtlanabilir olarak triyaj edilmiş (genel,
@@ -37,28 +18,37 @@ Kurallar:
   şablon gibi hissettirme.
 """
 
+TOOL_NAME = "yanit_taslagi"
+TOOL_DESCRIPTION = "Bir müşteri yorumuna, mağaza adına gönderilecek herkese açık bir yanıt taslağı üretir."
+PARAMETERS = {
+    "reply": {
+        "type": "string",
+        "description": "Müşteriye gönderilecek, herkese açık yanıt metni.",
+    }
+}
+REQUIRED = ["reply"]
 
-def draft_reply(review):
-    message = client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=300,
-        system=SYSTEM_PROMPT,
-        tools=[DRAFT_TOOL],
-        tool_choice={"type": "tool", "name": "yanit_taslagi"},
-        messages=[
-            {
-                "role": "user",
-                "content": f"Puan: {review['rating']}/5\nYorum: {review['body']}",
-            }
-        ],
+
+def draft_reply(review, model=DEFAULT_MODEL):
+    user_content = f"Puan: {review['rating']}/5\nYorum: {review['body']}"
+    result = call_tool(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        tool_name=TOOL_NAME,
+        tool_description=TOOL_DESCRIPTION,
+        parameters=PARAMETERS,
+        required=REQUIRED,
     )
-    tool_use_block = next(b for b in message.content if b.type == "tool_use")
-    return tool_use_block.input["reply"]
+    # None: model beklenen formatta yanit vermedi. Sessizce bos bir yanit
+    # dondurmek yerine, cagiran tarafin bunu "taslak uretilemedi, insana
+    # birak" olarak ele almasi gerekiyor.
+    if result is None:
+        return None
+    return result["reply"]
 
 
 if __name__ == "__main__":
-    from classify import classify_review
-
     test_reviews = [
         {"rating": 5, "title": "Harika", "body": "Cok memnun kaldim, hizli kargo."},
         {"rating": 5, "title": "Tesekkurler", "body": "Guzel urun, tavsiye ederim."},
@@ -73,5 +63,8 @@ if __name__ == "__main__":
             continue
         reply = draft_reply(review)
         print("Yorum:", review["body"])
-        print("-> taslak yanit:", reply)
+        if reply is None:
+            print("-> taslak uretilemedi, insana birakildi")
+        else:
+            print("-> taslak yanit:", reply)
         print("-" * 40)

@@ -117,21 +117,58 @@
 - ÇALIŞTIRAMADIK (Modül 4/5 ile aynı sebep). Anthropic bakiyesi eklenince
   Modül 4/5 ile birlikte tek seferde koşturulacak.
 
-## Modül 10 — Dağıtım ve devreye alma ⏸ (hazırlık yapıldı, gerçek dağıtım bekliyor)
-- requirements.txt düzeltildi: PowerShell'in UTF-16 sorunu olmadan, Bash'te
-  `pip freeze` ile yeniden oluşturuldu; artık fastapi/uvicorn/anthropic/
-  slack_bolt/slack_sdk/python-multipart dahil, gerçekten kurulu olan her şeyi
-  içeriyor.
-- app.py: poll.py'nin döngüsünü arka plan thread'inde, slack_app.py'nin
-  Socket Mode dinleyicisini ana thread'de çalıştıran TEK bir giriş noktası.
-  Railway/Render/Fly.io gibi platformlar tek bir başlatma komutu beklediği
-  için ikisi birleştirildi. Duman testi yapıldı, ikisi de sorunsuz başladı.
-- .env.example eklendi (gerçek değerler olmadan, hangi değişkenlerin gerektiğini
-  gösteren bir referans).
-- KARAR: gerçek hosting hesabı + canlı dağıtım + gölge mod, Anthropic bakiyesi
-  eklenip Modül 4/5/9'un canlı testi yapıldıktan sonra yapılacak.
+## NOT: numaralandırma değişti
+Rehber artifact'i 22 modüllük, 5 fazlı yeni bir yapıya geçti (reviews +
+iadeler + teknik destek, üç kanal). Modül 1-9 aynı kaldı. Aşağıdaki
+"Modül 10"'dan itibaren numaralar YENİ yapıya göre — eski "Modül 10
+(Dağıtım)" içeriği artık Modül 13'ün bir parçası olarak yeniden etiketlendi.
 
-## Genel durum
-Modül 1, 2 (kısmen), 3, 6, 7, 8: tamamlandı ve canlı test edildi.
-Modül 4, 5, 9, 10: kod hazır, Anthropic bakiyesi eklenince tek seferde
-canlı test edilip devreye alınacak.
+## Modül 10 — OpenRouter'a geçiş ve model seçimi ✅
+- llm.py: OpenRouter'a doğrudan `requests` ile bağlanan ortak bir yardımcı
+  (`call_tool`). Yeni bağımlılık eklemedik — mevcut requests kütüphanesi
+  yeterli. Zorunlu araç çağrısı (`tool_choice`), `max_tokens=4096`,
+  `temperature=0` (güvenliğe kritik bir sınıflandırmada tutarlılık, rastgele
+  yaratıcılıktan daha değerli).
+- classify.py ve draft.py OpenRouter'a taşındı, Anthropic tamamen bırakıldı.
+- KRİTİK GÜVENLİK ÖZELLİĞİ: model beklenen şemaya uymayan bir yanıt verirse
+  (`tool_calls` eksik, JSON bozuk, zorunlu alan eksik), `call_tool` None döner
+  ve çağıran taraf bunu "hataya kapalı, insana yönlendir" olarak yorumlar —
+  asla güvenli/otomatik bir varsayılana düşmez.
+- Model yarışı — `adversarial_tests.py` 8 vakayla 4 aday ücretsiz modeli test
+  etti (gerçek, canlı openrouter.ai/api/v1/models sorgusuyla seçildi, eski
+  blog yazılarından değil):
+  - `openai/gpt-oss-120b:free` — artık mevcut değil, kaldırılmış (404, "the
+    paid version is available now").
+  - `nemotron-3-ultra-550b-a55b` — 8/8 zaman aşımı (30sn), ücretsiz katmanda
+    aşırı yüklü.
+  - `gemma-4-31b-it`, `qwen3.8-27b` — 8/8 "429 Too Many Requests", birkaç gün
+    arayla iki kez denendi, hep aynı sonuç — muhtemelen bu modellerin küresel
+    ücretsiz kotası (bizim hesabımızdan bağımsız, tüm OpenRouter kullanıcıları
+    için paylaşılan) tükenmiş durumda.
+  - **`nemotron-3-super-120b-a12b`** — dört farklı denemede de (4096/varsayılan,
+    8192/varsayılan, 4096/temp=0) gerçekten çalışan TEK model. Gerçek başarı
+    oranı ısrarla %40-50 civarında kaldı — max_tokens'ı artırmak (8192'ye
+    çıkarmak daha da kötüleştirdi) ya da temperature=0 vermek bunu değiştirmedi;
+    modelin kendi doğal sınırı gibi görünüyor (çok uzun iç muhakeme üretip
+    bazen araç çağrısına hiç ulaşmıyor, "reasoning" alanında binlerce token
+    harcıyor).
+  - KARAR: `nemotron-3-super-120b-a12b:free` varsayılan model
+    (DEFAULT_MODEL). ~yarı yarıya format hatası VAR ama bu her zaman "insana
+    git" ile sonuçlanıyor — hiçbir zaman riskli bir yorumu kaçırmadı. Kabul
+    edilen ödün: güvenlik tam, verimlilik düşük (yorumların önemli kısmı
+    gereksiz yere insana gidecek). İleride ücretli bir modele geçmek ya da
+    openrouter/free otomatik yönlendiriciyi denemek bir seçenek.
+- Modül 4, 5 ve 9 böylece ilk kez GERÇEKTEN çalıştırıldı — Faz 1'in askıda
+  kalan son parçaları kapandı.
+
+## Sıradaki: Modül 11 — Zinciri uçtan uca bağlamak
+poll.py → classify.py → draft.py → notify_slack.py, ve Slack "Onayla" →
+POST /replies bağlantılarını kurmak.
+
+## Genel durum (Faz 1 tamamlandı)
+Modül 1-9: tamamlandı ve canlı test edildi (4, 5, 9 nihayet OpenRouter ile
+gerçek veriyle çalıştırıldı).
+Modül 10: tamamlandı (bu not).
+Modül 11-22: henüz başlanmadı — sırada Modül 11.
+Eski "Modül 10 (Dağıtım)" hazırlığı (requirements.txt, app.py, .env.example)
+hâlâ geçerli, yeni yapıda Modül 13'ün bir kısmını karşılıyor.

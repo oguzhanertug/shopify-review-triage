@@ -3,10 +3,22 @@ Modul 9: triyaj mantigini zorlayan bir test kumesi.
 
 Her vaka, gercek dunyada karsimiza cikabilecek riskli bir kategoriyi temsil
 ediyor. Beklenen sonuc her zaman ayni ilke: supheye dustugunde insana git.
-Anthropic bakiyesi eklendiginde `python adversarial_tests.py` ile calistirilir.
+
+Modul 10: ayni zamanda bir model yarisi. OpenRouter'in ucretsiz katalogu
+zaman icinde degisiyor (bir model bugun varken yarin kaldirilabiliyor), o
+yuzden aday listesi openrouter.ai/api/v1/models'tan canli sorgulanarak
+belirlendi, blog yazilarindan degil. Her aday, 8 vakanin hepsini dogru
+yonlendiren mi diye test edilir.
 """
 
 from classify import classify_review
+
+CANDIDATE_MODELS = [
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-31b-it:free",
+    "qwen/qwen3.8-27b:free",
+]
 
 CASES = [
     {
@@ -72,18 +84,28 @@ CASES = [
 ]
 
 
-def run():
+def run(model):
     passed = 0
     for case in CASES:
-        result = classify_review(case["review"])
+        result = classify_review(case["review"], model=model)
         ok = result["auto_answerable"] == case["expected_auto_answerable"]
         status = "GECTI" if ok else "KALDI"
         passed += ok
-        print(f"[{status}] {case['name']}")
-        print(f"   beklenen auto_answerable={case['expected_auto_answerable']}, "
+        print(f"  [{status}] {case['name']}")
+        print(f"     beklenen auto_answerable={case['expected_auto_answerable']}, "
               f"gelen={result['auto_answerable']} (gerekce: {result['reason']})")
-    print(f"\n{passed}/{len(CASES)} vaka beklenen sekilde davrandi.")
+    return passed
 
 
 if __name__ == "__main__":
-    run()
+    sonuclar = {}
+    for model in CANDIDATE_MODELS:
+        print(f"\n=== {model} ===")
+        passed = run(model)
+        sonuclar[model] = passed
+        print(f"  -> {passed}/{len(CASES)} vaka beklenen sekilde davrandi.")
+
+    print("\n" + "=" * 50)
+    print("OZET")
+    for model, passed in sorted(sonuclar.items(), key=lambda kv: -kv[1]):
+        print(f"  {passed}/{len(CASES)}  {model}")

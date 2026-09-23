@@ -1,46 +1,8 @@
-import os
 import json
 
-from dotenv import load_dotenv
-from anthropic import Anthropic
+from llm import call_tool
 
-load_dotenv()
-
-client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-TRIAGE_TOOL = {
-    "name": "triyaj_karari",
-    "description": (
-        "Bir müşteri yorumunu triyaj eder: duygu durumu, konusu ve otomatik "
-        "yanıtlanabilir olup olmadığına dair kararı döndürür."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "sentiment": {
-                "type": "string",
-                "enum": ["olumlu", "notr", "olumsuz"],
-                "description": "Yorumun genel duygu durumu.",
-            },
-            "topic": {
-                "type": "string",
-                "description": (
-                    "Yorumun ana konusu, ör. 'urun kalitesi', 'kargo', "
-                    "'musteri hizmetleri', 'iade talebi'."
-                ),
-            },
-            "auto_answerable": {
-                "type": "boolean",
-                "description": "Bu yorum güvenle otomatik bir yanıtla karşılanabilir mi?",
-            },
-            "reason": {
-                "type": "string",
-                "description": "auto_answerable kararının kısa gerekçesi.",
-            },
-        },
-        "required": ["sentiment", "topic", "auto_answerable", "reason"],
-    },
-}
+DEFAULT_MODEL = "openai/gpt-oss-120b:free"
 
 SYSTEM_PROMPT = """Sen bir e-ticaret mağazası için müşteri yorumu triyaj asistanısın.
 Görevin: gelen bir ürün yorumunu analiz edip triyaj_karari aracını çağırarak
@@ -56,27 +18,61 @@ auto_answerable = false OLMALI (her zaman insana git) eğer yorumda şunlardan b
 auto_answerable = true sadece genel, olumlu/nötr geri bildirimler için olabilir
 (ör. beğenme, hızlı kargo memnuniyeti, basit bir teşekkür)."""
 
+TOOL_NAME = "triyaj_karari"
+TOOL_DESCRIPTION = (
+    "Bir müşteri yorumunu triyaj eder: duygu durumu, konusu ve otomatik "
+    "yanıtlanabilir olup olmadığına dair kararı döndürür."
+)
+PARAMETERS = {
+    "sentiment": {
+        "type": "string",
+        "enum": ["olumlu", "notr", "olumsuz"],
+        "description": "Yorumun genel duygu durumu.",
+    },
+    "topic": {
+        "type": "string",
+        "description": (
+            "Yorumun ana konusu, ör. 'urun kalitesi', 'kargo', "
+            "'musteri hizmetleri', 'iade talebi'."
+        ),
+    },
+    "auto_answerable": {
+        "type": "boolean",
+        "description": "Bu yorum güvenle otomatik bir yanıtla karşılanabilir mi?",
+    },
+    "reason": {
+        "type": "string",
+        "description": "auto_answerable kararının kısa gerekçesi.",
+    },
+}
+REQUIRED = ["sentiment", "topic", "auto_answerable", "reason"]
 
-def classify_review(review):
-    message = client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=500,
-        system=SYSTEM_PROMPT,
-        tools=[TRIAGE_TOOL],
-        tool_choice={"type": "tool", "name": "triyaj_karari"},
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    f"Puan: {review['rating']}/5\n"
-                    f"Başlık: {review.get('title', '')}\n"
-                    f"Yorum: {review['body']}"
-                ),
-            }
-        ],
+FAIL_CLOSED_RESULT = {
+    "sentiment": "belirsiz",
+    "topic": "belirsiz",
+    "auto_answerable": False,
+    "reason": "Model yanıtı beklenen formatta değildi; güvenlik gereği insana yönlendirildi.",
+}
+
+
+def classify_review(review, model=DEFAULT_MODEL):
+    user_content = (
+        f"Puan: {review['rating']}/5\n"
+        f"Başlık: {review.get('title', '')}\n"
+        f"Yorum: {review['body']}"
     )
-    tool_use_block = next(b for b in message.content if b.type == "tool_use")
-    return tool_use_block.input
+    result = call_tool(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        tool_name=TOOL_NAME,
+        tool_description=TOOL_DESCRIPTION,
+        parameters=PARAMETERS,
+        required=REQUIRED,
+    )
+    if result is None:
+        return dict(FAIL_CLOSED_RESULT)
+    return result
 
 
 if __name__ == "__main__":
