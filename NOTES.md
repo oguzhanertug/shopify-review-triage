@@ -184,7 +184,21 @@ iadeler + teknik destek, üç kanal). Modül 1-9 aynı kaldı. Aşağıdaki
 - Modül 4 ve 9 canlı doğrulandı. Modül 5 (`draft_reply`) ise ancak Modül 11
   sırasında İLK KEZ gerçekten çalıştı (bkz. aşağı).
 
-## Modül 11 — Zinciri uçtan uca bağlamak ⏸ (bağlandı, gözetimsiz tam koşu bekliyor)
+## Modül 11 — Zinciri uçtan uca bağlamak ✅
+GÖZETİMSİZ TAM KOŞU YAPILDI (2026-09-26): yeni test yorumu 19:10:04'te
+gönderildi → 19:10:24'te app.py yakaladı, gerçek model sınıflandırdı
+(olumlu/kargo, otomatik yanıtlanabilir), gerçek taslak yazdı, Slack'e düştü →
+kullanıcı "Onayla"ya bastı → günlük "ONAYLADI, yanıt gönderildi", durum `sent`.
+DİKKAT: bu TEK bir koşu (n=1) ve model o sefer döngüye girmedi. Önceki
+ölçümlerde zincir ~yarı yarıya "Teknik hata"ya düşüyordu; bu tek başarı bunu
+değiştirmez. Judge.me bu sefer yorumu saniyeler içinde işledi (önceden 30-40
+dk sürmüştü) → gecikme sabit değil, "30-40 dk" iddiası fazla kesindi.
+Taslak kalitesi: "Ürünün beklentilerinizi karşıladığını ve kargo hızımızın
+beğeninizi aldığını görmek çok mutlu edici" — uydurma bilgi yok ama Türkçesi
+kasıntı. Slack akışında yalnızca Onayla/Reddet var, DÜZENLE yok; taslak kötü
+ama fikir doğruysa tek seçenek olduğu gibi göndermek ya da reddedip Judge.me'de
+elle yazmak. Düzenle düğmesi mantıklı bir sonraki iyileştirme.
+(Aşağıdaki "HENÜZ DOĞRULANMAYAN" maddesi bu koşuyla kapandı.)
 Yeni/yeniden yazılan: pipeline.py (process_review), judgeme.py (post_reply),
 notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
 - Akış: poll → sınıflandır → (güvenliyse) taslak → Slack → insan tıklaması →
@@ -216,7 +230,7 @@ notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
   sunmaya devam edeceğiz" hafif bir söz sayılabilir (istem söz vermeyi
   yasaklıyor) ve "umarım alışveriş deneyiminiz keyifli olur" kalıp. İleride
   istem sıkılaştırılabilir.
-- HENÜZ DOĞRULANMAYAN: hepsi bir arada gözetimsiz koşu (yeni bir yorum
+- (KAPANDI, bkz. yukarıdaki tam koşu) Önceden doğrulanmayan: hepsi bir arada gözetimsiz koşu (yeni bir yorum
   Judge.me'de belirir → app.py yakalar → gerçek model → Slack → tıklama →
   yanıt). Judge.me yeni yorumları 30-40 dk gecikmeyle işlediği için bu test
   uzun sürüyor. Testlerde gerçek zincir hep elle tetiklendi (poll_once ise
@@ -231,10 +245,12 @@ notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
   kullanılmıyor.
 
 ## Sıradaki
-Modül 11'i kapatmak için gözetimsiz uçtan uca koşu (yeni test yorumu +
-app.py), sonra Modül 12 (Shopify uygulaması iskeleti).
+Modül 12 (Shopify uygulaması iskeleti). Yorum kanalının açık iyileştirmeleri
+(acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
+buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 
 ## Genel durum
-Modül 1-10: tamamlandı ve canlı test edildi (not: `draft_reply` ancak Modül
-11'de ilk kez gerçekten çalıştı). Modül 11: bağlandı, gözetimsiz koşu bekliyor.
-Modül 12-22: başlanmadı.
+Faz 1 ve Faz 2'nin yorum kanalı tamamlandı: Modül 1-11 canlı test edildi
+(`draft_reply` ancak Modül 11'de ilk kez gerçekten çalıştı). Modül 12-22:
+başlanmadı. Bilinen zayıf nokta: ücretsiz modelin döngü hatası nedeniyle
+yorumların önemli bir kısmı "Teknik hata" ile insana gidiyor.
