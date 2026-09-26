@@ -7,6 +7,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import requests
 
+from pipeline import process_review
 from state import get_connection, is_processed, mark_processed
 
 load_dotenv()
@@ -35,13 +36,6 @@ def fetch_reviews():
     return response.json()["reviews"]
 
 
-def handle_new_review(review):
-    print(
-        f"[YENİ YORUM] {review['reviewer']['name']} - {review['rating']} yıldız "
-        f"- {review['body']!r} ({review['created_at']})"
-    )
-
-
 def poll_once(conn, last_seen):
     reviews = fetch_reviews()
     last_seen_dt = datetime.fromisoformat(last_seen) if last_seen else None
@@ -55,12 +49,21 @@ def poll_once(conn, last_seen):
     ]
     candidates.sort(key=lambda r: r["created_at"])
 
+    advance = True
     for review in candidates:
-        if is_processed(conn, review["id"]):
-            continue  # bu yorumu daha önce işledik, tekrar yazdırma/işleme
-        handle_new_review(review)
-        mark_processed(conn, review["id"])
-        last_seen = review["created_at"]
+        if not is_processed(conn, review["id"]):
+            try:
+                process_review(conn, review)
+            except Exception as exc:  # tek bir yorum döngüyü durdurmasın
+                # Watermark artık ilerlemez: aksi halde daha yeni bir yorum
+                # başarılı olunca >= filtresi bu yorumu bir daha hiç göstermezdi.
+                advance = False
+                print(f"[HATA] review_id={review['id']} işlenemedi, sonraki turda tekrar denenecek: {exc}")
+                continue
+            mark_processed(conn, review["id"])
+            print(f"[İŞLENDİ] review_id={review['id']} puan={review['rating']}")
+        if advance:
+            last_seen = review["created_at"]
 
     if last_seen:
         save_last_seen(last_seen)

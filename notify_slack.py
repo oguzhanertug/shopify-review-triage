@@ -7,6 +7,21 @@ load_dotenv()
 
 client = WebClient(token=os.getenv("SLACK_BOT_TOKEN"))
 CHANNEL = os.getenv("SLACK_CHANNEL_ID")
+MAX_BODY_CHARS = 1500  # Slack bölüm metni sınırı 3000; uzun yorum mesajı reddettirmesin
+
+
+def escape(text):
+    # Slack & < > karakterlerini özel işaretleme sayar (<!channel>, <@kullanici>,
+    # bağlantılar). Yorum ve model çıktısı güvenilmez girdidir; kaçmadan
+    # basarsak yorum yazan biri kanalda herkesi etiketleyebilir.
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def quote(text):
+    shown = escape(text[:MAX_BODY_CHARS])
+    if len(text) > MAX_BODY_CHARS:
+        shown += " …(kısaltıldı)"
+    return "\n".join(f"> {line}" for line in shown.splitlines() or [""])
 
 
 def post_auto_answerable(review_id, review, triage, draft_text):
@@ -16,9 +31,10 @@ def post_auto_answerable(review_id, review, triage, draft_text):
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"*Yeni yorum* — {triage['sentiment']} / {triage['topic']}\n"
-                    f"> {review['body']}\n\n"
-                    f"*Önerilen yanıt:*\n{draft_text}"
+                    f"*Yeni yorum* — {review['rating']}/5, "
+                    f"{escape(triage['sentiment'])} / {escape(triage['topic'])}\n"
+                    f"{quote(review['body'])}\n\n"
+                    f"*Önerilen yanıt:*\n{escape(draft_text)}"
                 ),
             },
         },
@@ -46,34 +62,23 @@ def post_auto_answerable(review_id, review, triage, draft_text):
 
 
 def post_needs_human(review_id, review, triage):
+    if triage.get("format_error"):
+        header = (
+            "*Teknik hata: otomatik triyaj tamamlanamadı.* "
+            "Yorumun kendisi riskli olmayabilir; model yanıtı okunamadı, lütfen elle inceleyin."
+        )
+        detail = f"*Ayrıntı:* {escape(triage['reason'])}"
+    else:
+        header = f"*İnsana gitmesi gereken bir yorum* — {escape(triage['sentiment'])} / {escape(triage['topic'])}"
+        detail = f"*Neden:* {escape(triage['reason'])}"
+
     blocks = [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": (
-                    f"*İnsana gitmesi gereken bir yorum* — {triage['sentiment']} / {triage['topic']}\n"
-                    f"> {review['body']}\n\n"
-                    f"*Neden:* {triage['reason']}"
-                ),
+                "text": f"{header}\n{review['rating']}/5\n{quote(review['body'])}\n\n{detail}",
             },
         }
     ]
     client.chat_postMessage(channel=CHANNEL, blocks=blocks, text="İnsana yönlendirilen yorum")
-
-
-if __name__ == "__main__":
-    # NOT: Anthropic bakiyesi eklenene kadar classify.py / draft.py'nin gerçek
-    # çıktısı yerine, Slack mesaj formatını ve buton akışını test etmek için
-    # simüle edilmiş bir triyaj sonucu kullanıyoruz.
-    fake_review = {"body": "Cok memnun kaldim, hizli kargo."}
-    fake_triage = {
-        "sentiment": "olumlu",
-        "topic": "kargo",
-        "auto_answerable": True,
-        "reason": "Genel olumlu geri bildirim, risk yok.",
-    }
-    fake_draft = "Değerlendirmeniz için teşekkür ederiz, hızlı teslimattan memnun kaldığınıza sevindik!"
-
-    post_auto_answerable(review_id="TEST-1", review=fake_review, triage=fake_triage, draft_text=fake_draft)
-    print("Slack'e gönderildi.")

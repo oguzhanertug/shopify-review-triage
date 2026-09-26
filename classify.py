@@ -1,8 +1,6 @@
 import json
 
-from llm import call_tool
-
-DEFAULT_MODEL = "openai/gpt-oss-120b:free"
+from llm import DEFAULT_MODEL, call_tool
 
 SYSTEM_PROMPT = """Sen bir e-ticaret mağazası için müşteri yorumu triyaj asistanısın.
 Görevin: gelen bir ürün yorumunu analiz edip triyaj_karari aracını çağırarak
@@ -52,6 +50,7 @@ FAIL_CLOSED_RESULT = {
     "topic": "belirsiz",
     "auto_answerable": False,
     "reason": "Model yanıtı beklenen formatta değildi; güvenlik gereği insana yönlendirildi.",
+    "format_error": True,
 }
 
 

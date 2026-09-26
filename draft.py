@@ -1,7 +1,5 @@
-from llm import call_tool
+from llm import DEFAULT_MODEL, call_tool
 from classify import classify_review
-
-DEFAULT_MODEL = "openai/gpt-oss-120b:free"
 
 SYSTEM_PROMPT = """Sen bir e-ticaret mağazasının müşteri yorumlarına yanıt yazan asistanısın.
 Bu fonksiyon SADECE otomatik-yanıtlanabilir olarak triyaj edilmiş (genel,

@@ -145,30 +145,96 @@ iadeler + teknik destek, üç kanal). Modül 1-9 aynı kaldı. Aşağıdaki
     arayla iki kez denendi, hep aynı sonuç — muhtemelen bu modellerin küresel
     ücretsiz kotası (bizim hesabımızdan bağımsız, tüm OpenRouter kullanıcıları
     için paylaşılan) tükenmiş durumda.
-  - **`nemotron-3-super-120b-a12b`** — dört farklı denemede de (4096/varsayılan,
-    8192/varsayılan, 4096/temp=0) gerçekten çalışan TEK model. Gerçek başarı
-    oranı ısrarla %40-50 civarında kaldı — max_tokens'ı artırmak (8192'ye
-    çıkarmak daha da kötüleştirdi) ya da temperature=0 vermek bunu değiştirmedi;
-    modelin kendi doğal sınırı gibi görünüyor (çok uzun iç muhakeme üretip
-    bazen araç çağrısına hiç ulaşmıyor, "reasoning" alanında binlerce token
-    harcıyor).
-  - KARAR: `nemotron-3-super-120b-a12b:free` varsayılan model
-    (DEFAULT_MODEL). ~yarı yarıya format hatası VAR ama bu her zaman "insana
-    git" ile sonuçlanıyor — hiçbir zaman riskli bir yorumu kaçırmadı. Kabul
-    edilen ödün: güvenlik tam, verimlilik düşük (yorumların önemli kısmı
-    gereksiz yere insana gidecek). İleride ücretli bir modele geçmek ya da
-    openrouter/free otomatik yönlendiriciyi denemek bir seçenek.
-- Modül 4, 5 ve 9 böylece ilk kez GERÇEKTEN çalıştırıldı — Faz 1'in askıda
-  kalan son parçaları kapandı.
+  - **`nemotron-3-super-120b-a12b`** — çalışan TEK model. İlk yorumum "gerçek
+    başarı %40-50, modelin doğal sınırı" idi; bu KISMEN yanlıştı, çünkü hata
+    nedenini günlüğe yazmıyordum. Tanılama eklenince gerçek nedenler çıktı
+    (5 başarısızlıktan): 4'ü `finish_reason=length` (model muhakemede döngüye
+    girip tüm token bütçesini harcıyor), 1'i sağlayıcı aşırı yüklenmesi (503,
+    HTTP 200 gövdesinde gelir). Yani hataların çoğu modelle ilgili, bir kısmı
+    altyapı.
+  - Müdahaleler denendi: `max_tokens` 4096→8192 İŞE YARAMADI (başarısız vakalar
+    98 ve 54 sn harcayıp yine `length` ile bitti; başarılılar 3-7 sn'de bitiyor
+    → sorun bütçe değil döngü). `reasoning.effort="low"` daha iyi göründü:
+    gerçek yanıt 6/8 (önceki koşularda 3-4/8) ama örneklem küçük (n=8) ve
+    temperature=0 olmasına rağmen aynı girdi koşudan koşuya farklı sonuç verdi
+    (sağlayıcı tam deterministik değil). UMUT VERİCİ, KANITLANMIŞ DEĞİL.
+    Varsayılan yapıldı (`REASONING_EFFORT="low"`, tek satırla geri alınır).
+  - KARAR: `nemotron-3-super-120b-a12b:free` varsayılan model. Format/döngü
+    hatası her zaman "insana git" ile sonuçlanıyor; gözlemlenen koşularda (~6
+    koşu, 5 riskli vaka) riskli bir yorum hiçbir zaman auto_answerable=true
+    olmadı — ama bu YAPISAL bir güvence (ayrıştırılamayan her şey insana gider),
+    istatistiksel bir garanti değil: model kendinden emin şekilde YANLIŞ ama
+    geçerli bir yanıt verirse (riskli yoruma true) tek engel insan onayıdır.
+    İleride ücretli bir modele geçmek seçenek.
+- HATA KAYDI (kendi hatam): koddaki DEFAULT_MODEL, yarıştan sonra da kalkmış
+  `openai/gpt-oss-120b:free` olarak kaldı; ben NOTES'a "varsayılan nemotron"
+  yazdım ama sabiti hiç değiştirmedim. Yarış betikleri modeli açıkça verdiği
+  için hiçbir test yakalamadı; gerçek boru hattı 404 alınca ortaya çıktı. İlk
+  404'ü de yanlışlıkla "geçici aksaklık" diye yorumlamıştım. Düzeltme:
+  DEFAULT_MODEL artık llm.py'de TEK yerde (iki dosyada kopya olunca kaymıştı),
+  404 artık "geçici" sayılmıyor (kalıcı yapılandırma hatası), HTTP hata
+  gövdeleri günlüğe yazılıyor.
+- Hata türleri ayrıldı (llm.py): geçici (408/429/5xx + HTTP 200 içinde gelen
+  sağlayıcı hataları) → 5 sn sonra BİR kez yeniden denenir; format hatası
+  (araç çağrısı yok) yeniden DENENMEZ (aynı girdiye aynı cevabı verir, günlük
+  kotayı boşa harcar). Zaman aşımı 30→90 sn (ölçülen yanıt süresi ~45 sn'ye çıkıyor).
+- Tür doğrulaması eklendi: alanın var olması yetmez, türü de doğru olmalı.
+  `"auto_answerable": "false"` (yazı) Python'da doğru sayılır ve "insana git"i
+  "otomatik yanıtla"ya çevirirdi — güvenlik ağındaki gerçek bir delikti, kapatıldı.
+- Modül 4 ve 9 canlı doğrulandı. Modül 5 (`draft_reply`) ise ancak Modül 11
+  sırasında İLK KEZ gerçekten çalıştı (bkz. aşağı).
 
-## Sıradaki: Modül 11 — Zinciri uçtan uca bağlamak
-poll.py → classify.py → draft.py → notify_slack.py, ve Slack "Onayla" →
-POST /replies bağlantılarını kurmak.
+## Modül 11 — Zinciri uçtan uca bağlamak ⏸ (bağlandı, gözetimsiz tam koşu bekliyor)
+Yeni/yeniden yazılan: pipeline.py (process_review), judgeme.py (post_reply),
+notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
+- Akış: poll → sınıflandır → (güvenliyse) taslak → Slack → insan tıklaması →
+  Judge.me'ye herkese açık yanıt.
+- Onay kapısının değişmezi: Slack'te gösterilen metin == veritabanında saklanan
+  metin == gönderilen metin. Gönderilecek metin Slack isteğinden DEĞİL, hep
+  `decisions` tablosundan okunur. Anormal uzun taslak (>1000 karakter)
+  gösterirken kısaltılmaz, baştan reddedilip insana gönderilir (kısaltırsak
+  değişmez bozulur).
+- Çift tıklama: `claim_pending` tek bir `UPDATE ... WHERE status='pending'`.
+  20 eşzamanlı tıklamayla test edildi → 1 kazanan, 1 yanıt.
+- Karar kalıcı (`decisions`): Slack gönderimi hata verirse yorum yeniden denenir
+  ama LLM tekrar çağrılmaz (kota korunur).
+- Watermark tuzağı: bir yorum hata verirse zaman damgası ilerlemez; yoksa daha
+  yeni bir yorum başarılı olunca `>=` filtresi hatalı yorumu bir daha hiç
+  göstermez (sessiz kayıp).
+- Slack güvenliği: yorum ve model çıktısı güvenilmeyen girdi. `<!channel>`,
+  `<@kullanici>` gibi kalıplar kaçırılıyor (yorum yazan biri kanalda herkesi
+  etiketleyemez); uzun yorum kısaltılıyor (Slack sınırını aşıp mesajı
+  reddettirmesin). Eski "TEST-1" butonu artık çökmüyor, gizli uyarı veriyor.
+- Format hatası ile gerçek triyaj Slack'te ayrı gösteriliyor ("Teknik hata:
+  otomatik triyaj tamamlanamadı" — yorum riskli olmayabilir, model yanıtı
+  okunamadı).
+- CANLI DOĞRULANANLAR: (1) Slack "Onayla" → veritabanı → Judge.me'de herkese
+  açık yanıt (kullanıcı Judge.me'de gördü); (2) "Teknik hata" mesajı (kullanıcı
+  okunaklı buldu); (3) gerçek model + gerçek taslak, Slack'e göndermeden 4
+  yorumda: 2/4 zincir tam çalıştı, 2/4 model döngüsü (`length`) → güvenle insana.
+- Gerçek taslaklar (ilk kez): kibar, uydurma bilgi yok. Ama "Daha iyi hizmet
+  sunmaya devam edeceğiz" hafif bir söz sayılabilir (istem söz vermeyi
+  yasaklıyor) ve "umarım alışveriş deneyiminiz keyifli olur" kalıp. İleride
+  istem sıkılaştırılabilir.
+- HENÜZ DOĞRULANMAYAN: hepsi bir arada gözetimsiz koşu (yeni bir yorum
+  Judge.me'de belirir → app.py yakalar → gerçek model → Slack → tıklama →
+  yanıt). Judge.me yeni yorumları 30-40 dk gecikmeyle işlediği için bu test
+  uzun sürüyor. Testlerde gerçek zincir hep elle tetiklendi (poll_once ise
+  sahte verilerle birim testinden geçti).
+- BİLİNEN SINIRLAR: yorumlar sırayla işleniyor; model 90 sn'ye kadar
+  sürebildiği için bir tur uzayabilir (gerçek zamanlı değil, sorun olmaz).
+  Ücretsiz kota (günde ~50 istek) yorum hacmi artarsa yetmez. Slack'te
+  kanaldaki HERKES butona basabilir (kullanıcı listesi kısıtlaması yok).
+  `send_reply_email=False`: yorumcuya e-posta gitmiyor (ürün kararı,
+  değiştirilebilir).
+- Küçük temizlik: `anthropic` paketi requirements.txt'te hâlâ duruyor ama artık
+  kullanılmıyor.
 
-## Genel durum (Faz 1 tamamlandı)
-Modül 1-9: tamamlandı ve canlı test edildi (4, 5, 9 nihayet OpenRouter ile
-gerçek veriyle çalıştırıldı).
-Modül 10: tamamlandı (bu not).
-Modül 11-22: henüz başlanmadı — sırada Modül 11.
-Eski "Modül 10 (Dağıtım)" hazırlığı (requirements.txt, app.py, .env.example)
-hâlâ geçerli, yeni yapıda Modül 13'ün bir kısmını karşılıyor.
+## Sıradaki
+Modül 11'i kapatmak için gözetimsiz uçtan uca koşu (yeni test yorumu +
+app.py), sonra Modül 12 (Shopify uygulaması iskeleti).
+
+## Genel durum
+Modül 1-10: tamamlandı ve canlı test edildi (not: `draft_reply` ancak Modül
+11'de ilk kez gerçekten çalıştı). Modül 11: bağlandı, gözetimsiz koşu bekliyor.
+Modül 12-22: başlanmadı.
