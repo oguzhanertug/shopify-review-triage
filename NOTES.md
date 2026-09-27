@@ -274,9 +274,14 @@ notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
 - Şablonun `SECURITY.md` dosyası alakasız bir jenerik şablon (bir Ruby gem'inden
   kalma metin) — proje için anlamlı değil, dokunmadım, sadece not düşüyorum.
 
+## Modül 13 — Sunucusuza taşıma: ERTELENDİ
+Kişisel Google Cloud hesabı bu iş için kullanılmak istenmiyor (haklı bir
+ayrım — iş ile kişisel hesabı karıştırmamak). Ayrı bir GCP hesabı/projesi
+netleşince ele alınacak. O zamana kadar sistem yerel makinede (`app.py`)
+çalışmaya devam ediyor, bu bir engel değil.
+
 ## Sıradaki
-Modül 13 (sunucusuza taşıma) ya da doğrudan Modül 14 (B: mağaza içi destek
-formu). İkisi de sırada, hangisiyle devam edileceği açık. Yorum kanalının açık iyileştirmeleri
+Modül 14 (B: mağaza içi destek formu) — GCP gerektirmiyor, doğrudan devam. Yorum kanalının açık iyileştirmeleri
 (acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
 buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 
