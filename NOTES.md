@@ -280,8 +280,32 @@ ayrım — iş ile kişisel hesabı karıştırmamak). Ayrı bir GCP hesabı/pro
 netleşince ele alınacak. O zamana kadar sistem yerel makinede (`app.py`)
 çalışmaya devam ediyor, bu bir engel değil.
 
+## Modül 14 — B: Mağaza içi destek formu ✅
+- `shopify app generate extension --template theme_app_extension` ile
+  `extensions/destek-formu` oluşturuldu (doğru şablon adı CLI'nin kendi hata
+  mesajından bulundu — dokümandaki özet "theme" diyordu, yanlıştı; gerçek
+  değer `theme_app_extension`).
+- `blocks/destek_formu.liquid`: e-posta, sipariş numarası, mesaj alanları
+  olan bir form; `block.settings.endpoint_url` ile backend adresi mağaza
+  sahibi tarafından ayarlanabilir (şimdilik ngrok, ileride Cloud Run).
+- Backend: `main.py`'ye `/support/intake` ucu eklendi, CORS middleware
+  eklendi (mağaza kendi alan adından farklı bir alan adına — ngrok'a —
+  istek atıyor). `state.py`'ye `support_requests` tablosu eklendi. Bu
+  aşamada HİÇBİR doğrulama yok — email/sipariş no müşterinin kendi beyanı,
+  kanıt değil (Modül 15'in işi).
+- Şablonun demo dosyaları (star_rating.liquid, stars.liquid, thumbs-up.png)
+  silindi.
+- CANLI DOĞRULANDI, iki aşamada: (1) curl ile CORS preflight + gerçek POST +
+  eksik alan 422 testi; (2) GERÇEK uçtan uca — `shopify app dev` çalışırken
+  tema düzenleyicide bir ürün sayfasına blok eklendi, form gerçekten
+  dolduruldu ve gönderildi, veritabanında yeni satır olarak göründü.
+- Sürtünme notu: "P" tuşu formu değil, şablonun demo admin uygulamasını
+  (FAQ) açtı — form için tema düzenleyiciye elle gitmek gerekti. Ana sayfada
+  ilk denenen bölüm zaten 3/3 blok doluydu, ürün sayfasına geçince çalıştı.
+
 ## Sıradaki
-Modül 14 (B: mağaza içi destek formu) — GCP gerektirmiyor, doğrudan devam. Yorum kanalının açık iyileştirmeleri
+Modül 15 (doğrulama katmanı) — sipariş no + e-postayı Shopify Admin API ile
+eşleştirmek. Bu, kullanıcı beyanının kanıt olmadığı ilkesinin koda dönüştüğü yer. Yorum kanalının açık iyileştirmeleri
 (acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
 buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 

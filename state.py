@@ -30,7 +30,34 @@ def get_connection():
         )
         """
     )
+    # Mağaza içi destek/iade formundan (Modül 14) gelen ham talepler. Henüz
+    # doğrulanmamış: email/order_number müşterinin kendi beyanı, kanıt değil
+    # (Modül 15 bunu Shopify siparişleriyle eşleştirecek).
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS support_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            order_number TEXT NOT NULL,
+            message TEXT NOT NULL,
+            received_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'yeni'
+        )
+        """
+    )
     return conn
+
+
+def save_support_request(conn, email, order_number, message):
+    conn.execute(
+        """
+        INSERT INTO support_requests (email, order_number, message, received_at, status)
+        VALUES (?, ?, ?, datetime('now'), 'yeni')
+        """,
+        (email, order_number, message),
+    )
+    conn.commit()
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
 def is_processed(conn, review_id):

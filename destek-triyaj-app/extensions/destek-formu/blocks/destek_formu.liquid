@@ -1,0 +1,78 @@
+<div class="destek-formu" id="destek-formu-{{ block.id }}">
+  <form>
+    <label>
+      E-posta
+      <br><input type="email" name="email" required>
+    </label>
+    <br>
+    <label>
+      Sipariş numarası
+      <br><input type="text" name="order_number" placeholder="#1001" required>
+    </label>
+    <br>
+    <label>
+      Mesajınız
+      <br><textarea name="message" rows="5" required></textarea>
+    </label>
+    <br>
+    <button type="submit">Gönder</button>
+  </form>
+  <p class="destek-formu-durum" hidden></p>
+</div>
+
+<script>
+  (function () {
+    var wrapper = document.getElementById("destek-formu-{{ block.id }}");
+    var form = wrapper.querySelector("form");
+    var durum = wrapper.querySelector(".destek-formu-durum");
+    var endpoint = {{ block.settings.endpoint_url | json }};
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var gonder = form.querySelector("button");
+      gonder.disabled = true;
+      durum.hidden = false;
+      durum.textContent = "Gönderiliyor...";
+
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email.value,
+          order_number: form.order_number.value,
+          message: form.message.value,
+        }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function () {
+          durum.textContent = "Talebiniz alındı, en kısa sürede dönüş yapacağız.";
+          form.reset();
+        })
+        .catch(function () {
+          durum.textContent = "Bir sorun oluştu, lütfen tekrar deneyin.";
+        })
+        .finally(function () {
+          gonder.disabled = false;
+        });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Destek / İade Formu",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "endpoint_url",
+      "label": "Backend adresi",
+      "info": "Destek taleplerinin gönderileceği tam URL (şu an için ngrok tünel adresi, ileride Cloud Run).",
+      "default": "https://portfolio-yearning-stimuli.ngrok-free.dev/support/intake"
+    }
+  ]
+}
+{% endschema %}
