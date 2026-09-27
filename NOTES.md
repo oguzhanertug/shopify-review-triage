@@ -244,8 +244,39 @@ notify_slack.py, slack_app.py, poll.py, state.py (decisions tablosu), app.py.
 - Küçük temizlik: `anthropic` paketi requirements.txt'te hâlâ duruyor ama artık
   kullanılmıyor.
 
+## Modül 12 — Shopify uygulaması iskeleti ✅
+- `@shopify/cli@4.8.2` global kuruldu (kaynağı doğrulandı: shopify.com yayıncıları,
+  github.com/Shopify/cli). Node 24.15 zaten uyumlu (gereken ≥22.12).
+- `shopify app init --template none` ile "extension-only" resmi şablonundan
+  başlatıldı, organizasyon 234396556'ya bağlandı, `destek-triyaj-app/` altına,
+  mevcut git deposunun İÇİNE (ayrı bir repo değil).
+- DÜZELTME: scaffold kendi iç içe `.git` deposu açmıştı — ana depoyla
+  çakışırdı (git status onu görmezdi, dosyalar sessizce izlenmezdi).
+  Kaldırıldı; normal alt klasör olarak eklendi. Kendi `.gitignore`'ı
+  (node_modules, .shopify/, .env) doğru çalışıyor, üst depodan `git add`
+  edildi, node_modules commit'e girmedi (kontrol edildi).
+- AGENTS.md (şablonun kendi dosyası) Shopify API işleri için resmi "Shopify
+  Dev MCP" eklentisini kullanmamı istiyor. Tam eşleşen isimde bulamadım ama
+  Shopify'ın kendi yayınladığı MCP eklentisini (plugin_01RELKgn8qpC38UA3rBhCAtU)
+  buldum, öneri kartı gösterildi — kurulumu kullanıcıya bağlı.
+- Şablon varsayılan olarak bir örnek gömülü admin uygulaması getiriyor (FAQ
+  metaobject + Sidekick "app-tools" uzantısı, `write_products` yetkisiyle).
+  Bu bizim tasarımımızın parçası DEĞİL — Modül 14/18'de kendi uzantılarımızla
+  (theme app extension, customer account UI extension) değiştirilecek.
+  `shopify.app.toml`'daki `write_products` yetkisi de o örneğe ait, Modül 16'da
+  gerçek ihtiyacımıza göre (muhtemelen `read_orders`) değişecek.
+- `shopify app dev` çalıştırıldı, doğrulandı: **test-store-e3uhspdt gerçekten
+  bir development store olarak organizasyonda kayıtlı**, CLI onu otomatik
+  varsayılan seçti ("Using your default dev store, test store"). Bu, planın
+  başından beri açık duran soruyu kapatıyor. Süreç tam ekran TUI olduğu için
+  (tünel URL'si "P" tuşuyla açılıyor, etkileşimli terminal gerektiriyor) daha
+  ileri gidemedik; ayrı bir oturumda elle çalıştırılabilir.
+- Şablonun `SECURITY.md` dosyası alakasız bir jenerik şablon (bir Ruby gem'inden
+  kalma metin) — proje için anlamlı değil, dokunmadım, sadece not düşüyorum.
+
 ## Sıradaki
-Modül 12 (Shopify uygulaması iskeleti). Yorum kanalının açık iyileştirmeleri
+Modül 13 (sunucusuza taşıma) ya da doğrudan Modül 14 (B: mağaza içi destek
+formu). İkisi de sırada, hangisiyle devam edileceği açık. Yorum kanalının açık iyileştirmeleri
 (acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
 buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 
