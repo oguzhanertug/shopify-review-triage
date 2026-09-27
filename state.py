@@ -41,20 +41,26 @@ def get_connection():
             order_number TEXT NOT NULL,
             message TEXT NOT NULL,
             received_at TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'yeni'
+            status TEXT NOT NULL DEFAULT 'yeni',
+            verified INTEGER NOT NULL DEFAULT 0
         )
         """
     )
+    try:
+        conn.execute("ALTER TABLE support_requests ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # sutun zaten var (Modul 14'ten kalan tablo)
     return conn
 
 
-def save_support_request(conn, email, order_number, message):
+def save_support_request(conn, email, order_number, message, verified):
     conn.execute(
         """
-        INSERT INTO support_requests (email, order_number, message, received_at, status)
-        VALUES (?, ?, ?, datetime('now'), 'yeni')
+        INSERT INTO support_requests (email, order_number, message, received_at, status, verified)
+        VALUES (?, ?, ?, datetime('now'), 'yeni', ?)
         """,
-        (email, order_number, message),
+        (email, order_number, message, int(verified)),
     )
     conn.commit()
     return conn.execute("SELECT last_insert_rowid()").fetchone()[0]

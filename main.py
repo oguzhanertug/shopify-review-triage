@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from shopify_admin import verify
 from state import get_connection, save_support_request
 
 load_dotenv()  # .env dosyasındaki değişkenleri oku
@@ -46,7 +47,12 @@ async def support_intake(request: Request):
     if len(message) > 5000:
         raise HTTPException(status_code=422, detail="message çok uzun")
 
+    # Musterinin beyani kanit degildir: siparis no + eposta gercekten eslesiyor mu
+    # diye Shopify'a soruyoruz. Eslesmiyorsa (ya da siparis yoksa) verified=False -
+    # bu talep her zaman insana gidecek, hicbir otomatik islem yapilmayacak.
+    dogrulandi, _order = verify(order_number, email)
+
     conn = get_connection()
-    request_id = save_support_request(conn, email, order_number, message)
-    print(f"[DESTEK TALEBİ] id={request_id} siparis={order_number}")
+    request_id = save_support_request(conn, email, order_number, message, dogrulandi)
+    print(f"[DESTEK TALEBİ] id={request_id} siparis={order_number} dogrulandi={dogrulandi}")
     return {"status": "received", "id": request_id}

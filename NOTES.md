@@ -303,9 +303,64 @@ netleşince ele alınacak. O zamana kadar sistem yerel makinede (`app.py`)
   (FAQ) açtı — form için tema düzenleyiciye elle gitmek gerekti. Ana sayfada
   ilk denenen bölüm zaten 3/3 blok doluydu, ürün sayfasına geçince çalıştı.
 
+## Modül 15 — Doğrulama katmanı ✅
+Bu modül beklenenden çok daha zorlu çıktı — kimlik doğrulama mekanizması
+2026'da tam bir baştan sona değişim içindeymiş, doğru yolu bulmak birçok
+yanlış izin denemesi gerektirdi. Sırasıyla:
+
+1. **Yetkilendirme yöntemi araştırıldı.** Eski "custom app statik token"
+   yöntemi (Admin > Develop apps) 1 Ocak 2026'dan itibaren yeni uygulamalar
+   için tamamen kaldırılmış. Doğru modern yöntem: **Client Credentials
+   Grant** — "kendi mağazana karşı, satıcı etkileşimi olmadan sunucu-sunucu
+   erişimi". `shopify_admin.py` bunu uyguluyor: `POST /admin/oauth/access_token`
+   ile `grant_type=client_credentials`, token 24 saatte bir yenileniyor
+   (cache'leniyor).
+2. **Yetki: `write_products` → `read_orders`.** Şablonun FAQ demosu
+   (`app-home`, `app-tools`) hâlâ `write_products` istiyordu — kaldırıldı.
+   `shopify.app.toml`'daki leftover `[metaobjects.app.faq]` /
+   `[product.metafields.app.faq]` blokları da kaldırıldı (asıl `write_products`
+   talebinin kaynağı bunlardı, extension kodu değil).
+3. **Yetki değişikliği mağazada kendiliğinden güncellenmedi.** `shopify app
+   deploy` yeni sürümü yayınladı, `shopify app info` doğru scope'u gösterdi
+   (`read_orders`), ama token endpoint'i hâlâ `scope: write_products`
+   döndürüyordu — GERÇEK kurulu izin değişmemişti. `shopify app dev`'de "P"
+   ile aç, panelde "Open app" gibi hiçbir şey bunu tetiklemedi.
+4. **Çözüm: tam kaldır + yeniden kur.** Dev Dashboard'da distribution "Custom"
+   seçilip bir kurulum linki üretildi; uygulama mağazadan TAMAMEN kaldırılıp
+   o linkle sıfırdan kuruldu. Ancak o zaman gerçek bir izin onay ekranı
+   ("Mağaza verilerini görüntüle: Siparişler") çıktı, kabul edilince token'ın
+   `scope` alanı gerçekten `read_orders` oldu.
+5. **"Access denied" korunan müşteri verisiyle ilgili DEĞİLDİ.** Yol boyunca
+   bunun "protected customer data" onayı olabileceğini düşünüp Partner'da
+   "API access requests" sayfasına gidildi — orada öyle bir seçenek yoktu
+   (o sayfa read_all_orders, subscriptions gibi farklı opsiyonel kapsamlar
+   içeriyor). Gerçek sorun sadece #3'teki kurulu-izin güncellenmemesiydi;
+   `id`+`name` gibi PII olmayan alanlar bile aynı hatayı veriyordu, bu da
+   erkenden ipucu olmalıydı.
+6. **Test verisi:** dev mağazada hiç sipariş yoktu (`ordersCount: 0`). Admin'de
+   "Sipariş Oluştur" ile yapılan ilk deneme bir TASLAK sipariş üretti (#D11 —
+   "D" öneki taslak demek, `orders` koleksiyonunda değil `draftOrders`'ta
+   yaşıyor, bu yüzden hiç bulunamadı). "Ödenmiş olarak işaretle" ile gerçek
+   siparişe dönüştürülünce #1001 oldu, `orders` sorgusunda göründü.
+- `shopify_admin.py`: `find_order()` sipariş numarasını sadece rakam kabul
+  ediyor (`#` temizlenir) — arama söz dizimine enjeksiyon riskini önlemek
+  için (`"1001 OR status:any"` gibi bir girdi None döner). `verify()` e-posta
+  karşılaştırmasını büyük/küçük harf duyarsız yapıyor.
+- CANLI TEST EDİLDİ (gerçek sipariş #1001 üzerinde): doğru eşleşme → True;
+  yanlış e-posta → False; olmayan sipariş → False; enjeksiyon denemesi →
+  False. Sonra gerçek HTTP zinciriyle (`/support/intake`): doğru
+  sipariş+e-posta → `verified=1`; sahte e-posta, gerçek sipariş no →
+  `verified=0`. Modül 14'ten kalan eski 2 kayıt `verified=0` olarak kaldı
+  (doğrulama o zaman yoktu, mantıklı).
+- `main.py`'nin `/support/intake` ucu artık her talebi otomatik doğruluyor,
+  `support_requests.verified` sütununa yazıyor. Henüz yapılmayan: doğrulanmamış
+  taleplerin Slack'e/insana özel olarak işaretlenerek düşmesi (Modül 17'nin
+  taslak üretimiyle birlikte ele alınacak).
+
 ## Sıradaki
-Modül 15 (doğrulama katmanı) — sipariş no + e-postayı Shopify Admin API ile
-eşleştirmek. Bu, kullanıcı beyanının kanıt olmadığı ilkesinin koda dönüştüğü yer. Yorum kanalının açık iyileştirmeleri
+Modül 16 aslında bu modülde fiilen tamamlandı (Shopify Admin API — sipariş
+okuma, sadece okuma yetkisi). Sırada Modül 17 — iade politikası motoru
+(hukukçu onayı bekleyen taslakla). Yorum kanalının açık iyileştirmeleri
 (acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
 buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 
