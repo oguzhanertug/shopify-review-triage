@@ -357,10 +357,15 @@ yanlış izin denemesi gerektirdi. Sırasıyla:
   taleplerin Slack'e/insana özel olarak işaretlenerek düşmesi (Modül 17'nin
   taslak üretimiyle birlikte ele alınacak).
 
+## Modül 17 — İade politikası motoru: ERTELENDİ
+Politika taslağı (14 gün cayma hakkı, istisnalar, ayıplı mal ayrımı) hâlâ
+hukukçu onayı bekliyor. Onay gelmeden bu motoru kodlamak riskli — kurallar
+değişebilir, kodlanmış-ama-yanlış bir politika kodlanmamış politikadan
+daha kötü. Onay gelince ele alınacak.
+
 ## Sıradaki
-Modül 16 aslında bu modülde fiilen tamamlandı (Shopify Admin API — sipariş
-okuma, sadece okuma yetkisi). Sırada Modül 17 — iade politikası motoru
-(hukukçu onayı bekleyen taslakla). Yorum kanalının açık iyileştirmeleri
+Modül 18 (A: Müşteri hesabı eklentisi) — GCP ya da hukukçu onayı gerektirmiyor,
+doğrudan devam edilebilir. Yorum kanalının açık iyileştirmeleri
 (acil değil): Slack'e "Düzenle" düğmesi, taslak isteminin sıkılaştırılması,
 buton yetkisinin kısıtlanması, kullanılmayan `anthropic` paketinin temizliği.
 
