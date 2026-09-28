@@ -1,5 +1,10 @@
 # İlerleme Notları
 
+> **Güncel durum ve "kaldığımız yer" için HANDOFF.md'ye bakın.** Burası
+> kronolojik bir günlük — her kararın neden öyle alındığı, hangi yanlış
+> yolların denenip elendiği burada. Yeni bir oturuma hızlıca bağlanmak
+> için önce HANDOFF.md okunmalı.
+
 ## Modül 1 — Ortam kurulumu ✅
 - venv, pip, .env ile secret yönetimi
 - Judge.me API bağlantısı, Claude API key, Slack bot token+kanal hazır
